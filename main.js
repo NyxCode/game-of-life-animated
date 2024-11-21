@@ -191,11 +191,56 @@ class Blur {
     this.prog = createProgram(
       IDENTITY_VS,
       `#version 300 es
-      precision mediump float;
+      precision highp float;
+      precision highp sampler2D;
 
       uniform sampler2D tex;
       uniform float ratio;
       out vec4 color_out;
+
+      vec4 cubic(float v){
+        vec4 n = vec4(1.0, 2.0, 3.0, 4.0) - v;
+        vec4 s = n * n * n;
+        float x = s.x;
+        float y = s.y - 4.0 * s.x;
+        float z = s.z - 4.0 * s.y + 6.0 * s.x;
+        float w = 6.0 - x - y - z;
+        return vec4(x, y, z, w) * (1.0/6.0);
+    }
+
+      vec4 textureBicubic(sampler2D sampler, vec2 texCoords){
+
+        vec2 texSize = vec2(textureSize(sampler, 0));
+        vec2 invTexSize = 1.0 / texSize;
+        
+        texCoords = texCoords * texSize - 0.5;
+     
+        
+         vec2 fxy = fract(texCoords);
+         texCoords -= fxy;
+     
+         vec4 xcubic = cubic(fxy.x);
+         vec4 ycubic = cubic(fxy.y);
+     
+         vec4 c = texCoords.xxyy + vec2 (-0.5, +1.5).xyxy;
+         
+         vec4 s = vec4(xcubic.xz + xcubic.yw, ycubic.xz + ycubic.yw);
+         vec4 offset = c + vec4 (xcubic.yw, ycubic.yw) / s;
+         
+         offset *= invTexSize.xxyy;
+         
+         vec4 sample0 = texture(sampler, offset.xz);
+         vec4 sample1 = texture(sampler, offset.yz);
+         vec4 sample2 = texture(sampler, offset.xw);
+         vec4 sample3 = texture(sampler, offset.yw);
+     
+         float sx = s.x / (s.x + s.y);
+         float sy = s.z / (s.z + s.w);
+     
+         return mix(
+            mix(sample3, sample2, sx), mix(sample1, sample0, sx)
+         , sy);
+     }
 
       // https://www.shadertoy.com/view/Xltfzj
       void main() {
@@ -215,10 +260,11 @@ class Blur {
           }
         }
         
-        vec3 col = vec3(color, color, color) * (vec3(1) + vec3(2, 1, 4) * 0.1);
-        col /= Quality * Directions - 15.0;
+        vec3 col = vec3(1, 1, 1) * textureBicubic(tex, gl_FragCoord.xy / vec2(${width}, ${height})).r;
+        col *= (vec3(1) + vec3(2, 1, 4) * 0.05);
         col = smoothstep(0.3, 1.0, col);
         col = smoothstep(0.05, 0.1, col);
+        //col = vec3(col.r > 0.2 ? 1 : 0, col.g > 0.2 ? 1 : 0, col.b > 0.2 ? 1 : 0);
         color_out = vec4(col, 1);
       }
     `
@@ -226,16 +272,16 @@ class Blur {
 
     this.input = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, this.input);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, width, height, 0, gl.RED, gl.UNSIGNED_BYTE, null);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, 48, 48, 0, gl.RED, gl.UNSIGNED_BYTE, null);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   }
 
   blur() {
     gl.useProgram(this.prog);
-    gl.viewport(0, 0, this.width, this.height);
+    gl.viewport(0, 0, 2084, 2084);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
     gl.activeTexture(gl.TEXTURE0);
@@ -272,12 +318,12 @@ function slider(id, fmt) {
 const speed = slider("speed", v => (100 * v).toFixed(1));
 const fps = new FPS();
 
-canvas.width = 2048;
-canvas.height = 2048;
+canvas.width = 2084;
+canvas.height = 2084;
 
 let sim = new Sim(gl, 24, 24);
-let blend = new Blend(gl, 2048, 2048);
-let blur = new Blur(gl, 2048, 2048);
+let blend = new Blend(gl, 48, 48);
+let blur = new Blur(gl, 2084, 2084);
 
 let ratio = 0;
 
@@ -285,6 +331,7 @@ function renderLoop() {
   blend.blendTex(sim.tex1, sim.tex0, ratio, blur.input);
 
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.viewport(0, 0, 2084, 2084);
   blur.blur();
 
   ratio = ratio += parseFloat(speed.value);
