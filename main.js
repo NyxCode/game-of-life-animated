@@ -215,10 +215,11 @@ class Blur {
           }
         }
         
-        color /= Quality * Directions - 15.0;
-        color = smoothstep(0.3, 1.0, color);
-        color = smoothstep(0.1, 0.1, color);
-        color_out = vec4(color, color, color, 1);
+        vec3 col = vec3(color, color, color) * (vec3(1) + vec3(2, 1, 4) * 0.1);
+        col /= Quality * Directions - 15.0;
+        col = smoothstep(0.3, 1.0, col);
+        col = smoothstep(0.05, 0.1, col);
+        color_out = vec4(col, 1);
       }
     `
     );
@@ -245,6 +246,32 @@ class Blur {
   }
 }
 
+class FPS {
+  constructor() {
+    this.elem = document.getElementById("fps"); 
+    this.lastFrame = performance.now();
+  }
+
+  done() {
+    const now = performance.now();
+    const fps = 1000 / (now - this.lastFrame);
+    this.elem.innerHTML = (1000 / (now - this.lastFrame)).toFixed(0);
+    this.lastFrame = now;
+  }
+}
+
+function slider(id, fmt) {
+  const elem = document.getElementById(id);
+  const valueElem = document.querySelector(`label[for="${id}"] + span`);
+  const updateValue = () => valueElem.innerHTML = fmt(elem.value);
+  elem.addEventListener("input", updateValue);
+  updateValue();
+  return elem;
+}
+
+const speed = slider("speed", v => (100 * v).toFixed(1));
+const fps = new FPS();
+
 canvas.width = 2048;
 canvas.height = 2048;
 
@@ -260,12 +287,15 @@ function renderLoop() {
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   blur.blur();
 
-  ratio = ratio += 0.01;
+  ratio = ratio += parseFloat(speed.value);
 
   if (ratio >= 1) {
     sim.step();
     ratio = 0;
   }
+
+  gl.finish();
+  fps.done();
 
   requestAnimationFrame(renderLoop);
 }
