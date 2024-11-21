@@ -46,8 +46,9 @@ class Sim {
       return tex;
     };
 
-    const pixels = new Uint8Array(width * height);
-    for (let i = 0; i < pixels.length; i++) {
+    const len = Math.pow(2, Math.ceil(Math.log2(width * height)));
+    const pixels = new Uint8Array(len);
+    for (let i = 0; i < width * height; i++) {
       pixels[i] = Math.random() < 0.2 ? 255 : 0;
     }
 
@@ -151,6 +152,13 @@ class Blend {
     `
     );
     this.framebuffer = gl.createFramebuffer();
+    this.outTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, this.outTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, width, height, 0, gl.RED, gl.UNSIGNED_BYTE, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   }
 
   blend(tex0, tex1, ratio) {
@@ -170,9 +178,9 @@ class Blend {
     gl.drawArrays(gl.TRIANGLES, 0, 6);
   }
 
-  blendTex(tex0, tex1, ratio, texout) {
+  blendTex(tex0, tex1, ratio) {
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texout, 0);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.outTex, 0);
 
     this.blend(tex0, tex1, ratio);
   }
@@ -236,29 +244,21 @@ class Blur {
       void main() {        
         vec3 col = vec3(1, 1, 1) * textureBicubic(tex, gl_FragCoord.xy / vec2(${width}, ${height})).r;
         col *= (vec3(1) + vec3(2, 1, 4) * 0.05);
-        col = smoothstep(0.3, 1.0, col);
+        col = smoothstep(0.4, 1.0, col);
         col = smoothstep(0.05, 0.1, col);
         color_out = vec4(col, 1);
       }
     `
     );
-
-    this.input = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, this.input);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, 48, 48, 0, gl.RED, gl.UNSIGNED_BYTE, null);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   }
 
-  blur() {
+  blur(outTex) {
     gl.useProgram(this.prog);
     gl.viewport(0, 0, this.width, this.height);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, this.input);
+    gl.bindTexture(gl.TEXTURE_2D, outTex);
     gl.uniform1i(gl.getUniformLocation(this.prog, "tex"), 0);
 
     gl.drawArrays(gl.TRIANGLES, 0, 6);
@@ -294,23 +294,24 @@ function slider(id, fmt, on=()=>{}) {
 
 
 const speed = slider("speed", v => (100 * v).toFixed(1));
-
 const fps = new FPS();
 
-canvas.width = 1 << 12;
-canvas.height = 1 << 12;
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
 
-let sim = new Sim(gl, 24, 24);
-let blend = new Blend(gl, 48, 48);
+console.log(canvas.width, canvas.height);
+
+let sim = new Sim(gl, Math.ceil(canvas.width / 50), Math.floor(canvas.height / 50));
+let blend = new Blend(gl, sim.width * 2, sim.height * 2);
 let blur = new Blur(gl, canvas.width, canvas.height);
 
 let ratio = 0;
 
 function renderLoop() {
-  blend.blendTex(sim.tex1, sim.tex0, ratio, blur.input);
+  blend.blendTex(sim.tex1, sim.tex0, ratio);
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   gl.viewport(0, 0, canvas.width, canvas.height);
-  blur.blur();
+  blur.blur(blend.outTex);
 
   ratio = ratio += parseFloat(speed.value);
 
