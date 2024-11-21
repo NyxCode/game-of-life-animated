@@ -248,7 +248,7 @@ class Blur {
 canvas.width = 2048;
 canvas.height = 2048;
 
-let sim = new Sim(gl, 16, 16);
+let sim = new Sim(gl, 24, 24);
 let blend = new Blend(gl, 2048, 2048);
 let blur = new Blur(gl, 2048, 2048);
 
