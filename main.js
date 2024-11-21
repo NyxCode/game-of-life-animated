@@ -142,7 +142,9 @@ class Blend {
       out vec4 color;
       
       float ease(float x) {
-        return 2.77778 * pow(x, 3.) + -4.16667 * pow(x, 2.) + 2.38889 * x;
+        return 2.08333 * x * x * x +
+        -3.125 * x * x +
+        2.04167 *x;
       }
 
       void main() {

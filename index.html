@@ -9,9 +9,15 @@
   <body>
     <canvas
       id="canvas"
-      style="width: 100%; border: 1px solid black; image-rendering: pixelated"
+      style="height: 100%; display: block; margin: auto;"
     ></canvas>
-    <span id="fps"></span>
+    <style>
+      body {
+        margin: 0;
+        background-color: black;
+        height: 100vh;
+      }
+    </style>
     <script type="module" src="/main.js"></script>
   </body>
 </html>
