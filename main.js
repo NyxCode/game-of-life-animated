@@ -13,7 +13,6 @@ function createShader(gl, type, source) {
 
   if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
     console.error("Shader compilation error:", gl.getShaderInfoLog(shader));
-    gl.deleteShader(shader);
     throw "shader compilation error";
   }
 
@@ -35,8 +34,6 @@ function createProgram(vs, fs) {
 }
 
 class Sim {
-  asdf() {}
-
   constructor(gl, width, height) {
     const makeTexture = (pixels) => {
       const tex = gl.createTexture();
@@ -48,8 +45,6 @@ class Sim {
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
       return tex;
     };
-
-    this.asdf();
 
     const pixels = new Uint8Array(width * height);
     for (let i = 0; i < pixels.length; i++) {
@@ -113,8 +108,7 @@ class Sim {
   }
 
   renderCanvas() {
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null); // Render to canvas
-    //gl.viewport(0, 0, canvas.width, canvas.height); // Match canvas size
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null); 
     this.render();
   }
 
@@ -198,7 +192,7 @@ class Blur {
       uniform float ratio;
       out vec4 color_out;
 
-      vec4 cubic(float v){
+      vec4 cubic(float v) {
         vec4 n = vec4(1.0, 2.0, 3.0, 4.0) - v;
         vec4 s = n * n * n;
         float x = s.x;
@@ -206,65 +200,44 @@ class Blur {
         float z = s.z - 4.0 * s.y + 6.0 * s.x;
         float w = 6.0 - x - y - z;
         return vec4(x, y, z, w) * (1.0/6.0);
-    }
+      }
 
       vec4 textureBicubic(sampler2D sampler, vec2 texCoords){
-
         vec2 texSize = vec2(textureSize(sampler, 0));
         vec2 invTexSize = 1.0 / texSize;
         
         texCoords = texCoords * texSize - 0.5;
-     
+        vec2 fxy = fract(texCoords);
+        texCoords -= fxy;
+    
+        vec4 xcubic = cubic(fxy.x);
+        vec4 ycubic = cubic(fxy.y);
+    
+        vec4 c = texCoords.xxyy + vec2 (-0.5, +1.5).xyxy;
         
-         vec2 fxy = fract(texCoords);
-         texCoords -= fxy;
-     
-         vec4 xcubic = cubic(fxy.x);
-         vec4 ycubic = cubic(fxy.y);
-     
-         vec4 c = texCoords.xxyy + vec2 (-0.5, +1.5).xyxy;
-         
-         vec4 s = vec4(xcubic.xz + xcubic.yw, ycubic.xz + ycubic.yw);
-         vec4 offset = c + vec4 (xcubic.yw, ycubic.yw) / s;
-         
-         offset *= invTexSize.xxyy;
-         
-         vec4 sample0 = texture(sampler, offset.xz);
-         vec4 sample1 = texture(sampler, offset.yz);
-         vec4 sample2 = texture(sampler, offset.xw);
-         vec4 sample3 = texture(sampler, offset.yw);
-     
-         float sx = s.x / (s.x + s.y);
-         float sy = s.z / (s.z + s.w);
-     
-         return mix(
-            mix(sample3, sample2, sx), mix(sample1, sample0, sx)
-         , sy);
+        vec4 s = vec4(xcubic.xz + xcubic.yw, ycubic.xz + ycubic.yw);
+        vec4 offset = c + vec4 (xcubic.yw, ycubic.yw) / s;
+        
+        offset *= invTexSize.xxyy;
+        
+        vec4 sample0 = texture(sampler, offset.xz);
+        vec4 sample1 = texture(sampler, offset.yz);
+        vec4 sample2 = texture(sampler, offset.xw);
+        vec4 sample3 = texture(sampler, offset.yw);
+    
+        float sx = s.x / (s.x + s.y);
+        float sy = s.z / (s.z + s.w);
+    
+        return mix(
+          mix(sample3, sample2, sx), mix(sample1, sample0, sx)
+        , sy);
      }
 
-      // https://www.shadertoy.com/view/Xltfzj
-      void main() {
-        float Pi = 6.28318530718; // Pi*2
-    
-        float Directions = 64.0;
-        float Quality = 8.0;
-        float Size = 48.0;
-       
-        vec2 Radius = Size / vec2(${width}, ${height});
-        vec2 uv = gl_FragCoord.xy / vec2(${width}, ${height});
-        float color = texture(tex, uv).r;
-        
-        for(float d = 0.0; d < Pi; d += Pi / Directions) {
-          for(float i = 1.0 / Quality; i <= 1.0; i += 1.0 / Quality) {
-            color += texture(tex, uv + vec2(cos(d), sin(d)) * Radius * i).r;		
-          }
-        }
-        
+      void main() {        
         vec3 col = vec3(1, 1, 1) * textureBicubic(tex, gl_FragCoord.xy / vec2(${width}, ${height})).r;
         col *= (vec3(1) + vec3(2, 1, 4) * 0.05);
         col = smoothstep(0.3, 1.0, col);
         col = smoothstep(0.05, 0.1, col);
-        //col = vec3(col.r > 0.2 ? 1 : 0, col.g > 0.2 ? 1 : 0, col.b > 0.2 ? 1 : 0);
         color_out = vec4(col, 1);
       }
     `
@@ -281,7 +254,7 @@ class Blur {
 
   blur() {
     gl.useProgram(this.prog);
-    gl.viewport(0, 0, 2084, 2084);
+    gl.viewport(0, 0, this.width, this.height);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
     gl.activeTexture(gl.TEXTURE0);
@@ -294,44 +267,49 @@ class Blur {
 
 class FPS {
   constructor() {
-    this.elem = document.getElementById("fps"); 
+    this.fpsElem = document.getElementById("fps"); 
     this.lastFrame = performance.now();
   }
 
   done() {
     const now = performance.now();
-    const fps = 1000 / (now - this.lastFrame);
-    this.elem.innerHTML = (1000 / (now - this.lastFrame)).toFixed(0);
+
+    this.fpsElem.innerHTML = (1000 / (now - this.lastFrame)).toFixed(0);
+
     this.lastFrame = now;
   }
 }
 
-function slider(id, fmt) {
+function slider(id, fmt, on=()=>{}) {
   const elem = document.getElementById(id);
   const valueElem = document.querySelector(`label[for="${id}"] + span`);
   const updateValue = () => valueElem.innerHTML = fmt(elem.value);
-  elem.addEventListener("input", updateValue);
+  elem.addEventListener("input", () => {
+    updateValue();
+    on(elem.value);
+  });
   updateValue();
   return elem;
 }
 
+
 const speed = slider("speed", v => (100 * v).toFixed(1));
+
 const fps = new FPS();
 
-canvas.width = 2084;
-canvas.height = 2084;
+canvas.width = 1 << 12;
+canvas.height = 1 << 12;
 
 let sim = new Sim(gl, 24, 24);
 let blend = new Blend(gl, 48, 48);
-let blur = new Blur(gl, 2084, 2084);
+let blur = new Blur(gl, canvas.width, canvas.height);
 
 let ratio = 0;
 
 function renderLoop() {
   blend.blendTex(sim.tex1, sim.tex0, ratio, blur.input);
-
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-  gl.viewport(0, 0, 2084, 2084);
+  gl.viewport(0, 0, canvas.width, canvas.height);
   blur.blur();
 
   ratio = ratio += parseFloat(speed.value);
