@@ -311,7 +311,7 @@ canvas.height = window.innerHeight;
 
 console.log(canvas.width, canvas.height);
 
-let sim = new Sim(gl, Math.ceil(canvas.width / 30), Math.floor(canvas.height / 30));
+let sim = new Sim(gl, 32, Math.floor(30 * canvas.height / canvas.width));
 let blend = new Blend(gl, sim.width * 2, sim.height * 2);
 let blur = new Blur(gl, canvas.width, canvas.height);
 
