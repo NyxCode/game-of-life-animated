@@ -136,6 +136,15 @@ class Blend {
       uniform float ratio;
       out vec4 color;
       
+      float mixRatio(float ratio) {
+        vec2 uv = gl_FragCoord.xy / vec2(${width}, ${height});
+
+        float dist = distance(uv, vec2(0.5, 0.5));
+        float circle = smoothstep(ratio, ratio - .4, dist);
+    
+        return circle;
+      }
+
       float ease(float x) {
         return 2.08333 * x * x * x +
         -3.125 * x * x +
@@ -147,7 +156,7 @@ class Blend {
         float a = texture(tex0, pos).r;
         float b = texture(tex1, pos).r;
         float eased = ease(ratio);
-        color = vec4(a * (1. - eased) + b * eased, 0, 0, 1); 
+        color = vec4(mix(a, b, ease(mixRatio(ease(ratio)))), 0, 0, 1); 
       }
     `
     );
@@ -241,8 +250,9 @@ class Blur {
         , sy);
      }
 
-      void main() {        
+      void main() {     
         vec3 col = vec3(1, 1, 1) * textureBicubic(tex, gl_FragCoord.xy / vec2(${width}, ${height})).r;
+        //color_out = vec4(col, 1); return;
         col *= (vec3(1) + vec3(2, 1, 4) * 0.05);
         col = smoothstep(0.4, 1.0, col);
         col = smoothstep(0.05, 0.1, col);
@@ -301,7 +311,7 @@ canvas.height = window.innerHeight;
 
 console.log(canvas.width, canvas.height);
 
-let sim = new Sim(gl, Math.ceil(canvas.width / 50), Math.floor(canvas.height / 50));
+let sim = new Sim(gl, Math.ceil(canvas.width / 30), Math.floor(canvas.height / 30));
 let blend = new Blend(gl, sim.width * 2, sim.height * 2);
 let blur = new Blur(gl, canvas.width, canvas.height);
 
