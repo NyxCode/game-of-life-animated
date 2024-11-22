@@ -1,6 +1,3 @@
-const canvas = document.getElementById("canvas");
-const gl = canvas.getContext("webgl2");
-
 const IDENTITY_VS = `#version 300 es
   in vec4 position;
   void main() { gl_Position = position; }
@@ -19,7 +16,7 @@ function createShader(gl, type, source) {
   return shader;
 }
 
-function createProgram(vs, fs) {
+function createProgram(gl, vs, fs) {
   const program = gl.createProgram();
   gl.attachShader(program, createShader(gl, gl.VERTEX_SHADER, vs));
   gl.attachShader(program, createShader(gl, gl.FRAGMENT_SHADER, fs));
@@ -35,37 +32,22 @@ function createProgram(vs, fs) {
 
 class Sim {
   constructor(gl, width, height) {
-    const makeTexture = (pixels) => {
-      const tex = gl.createTexture();
-      gl.bindTexture(gl.TEXTURE_2D, tex);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, width, height, 0, gl.RED, gl.UNSIGNED_BYTE, pixels);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-      return tex;
-    };
-
-    const len = Math.pow(2, Math.ceil(Math.log2(width * height)));
-    const pixels = new Uint8Array(len);
-    for (let i = 0; i < width * height; i++) {
-      pixels[i] = Math.random() < 0.2 ? 255 : 0;
-    }
-
+    this.gl = gl;
     this.width = width;
     this.height = height;
     this.framebuffer = gl.createFramebuffer();
-    this.tex0 = makeTexture(pixels);
-    this.tex1 = makeTexture(null);
+    this.createTextures();
     this.prog = createProgram(
+      gl,
       IDENTITY_VS,
       `#version 300 es
       precision mediump float;
+
+      uniform ivec2 grid_size;
       uniform sampler2D tex;
       out vec4 color;
       
       void main() { 
-        ivec2 grid_size = ivec2(${width}, ${height});
         ivec2 grid_pos = ivec2(gl_FragCoord.xy);
 
         int neighbours = 0;
@@ -98,27 +80,67 @@ class Sim {
     gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
   }
 
+  createTextures() {
+    const gl = this.gl;
+
+    const makeTexture = (pixels) => {
+      const tex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, this.width, this.height, 0, gl.RED, gl.UNSIGNED_BYTE, pixels);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      return tex;
+    };
+
+    const len = Math.pow(2, Math.ceil(Math.log2(this.width * this.height)));
+    const pixels = new Uint8Array(len);
+    for (let i = 0; i < this.width * this.height; i++) {
+      pixels[i] = Math.random() < 0.2 ? 255 : 0;
+    }
+    this.tex0 = makeTexture(pixels);
+    this.tex1 = makeTexture(null);
+  }
+
   render() {
+    const gl = this.gl;
+
     gl.useProgram(this.prog);
     gl.viewport(0, 0, this.width, this.height);
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.tex0);
     gl.uniform1i(gl.getUniformLocation(this.prog, "tex"), 0);
+    gl.uniform2i(gl.getUniformLocation(this.prog, "grid_size"), this.width, this.height);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
   }
 
   renderCanvas() {
+    const gl = this.gl;
     gl.bindFramebuffer(gl.FRAMEBUFFER, null); 
     this.render();
   }
 
+
+
   step() {
+    const gl = this.gl;
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.tex1, 0); // render into tex1
 
     this.render();
     [this.tex0, this.tex1] = [this.tex1, this.tex0];
+  }
+
+  resize(x, y) {
+    const gl = this.gl;
+    gl.deleteTexture(this.tex0);
+    gl.deleteTexture(this.tex1);
+
+    this.width = x;
+    this.height = y;
+    this.createTextures();
   }
 }
 
@@ -127,22 +149,29 @@ class Blend {
     this.width = width;
     this.height = height;
     this.prog = createProgram(
+      gl,
       IDENTITY_VS,
       `#version 300 es
-      precision mediump float;
+      precision highp float;
+      precision highp sampler2D;
 
       uniform sampler2D tex0;
       uniform sampler2D tex1;
       uniform float ratio;
+      uniform vec2 resolution;
       out vec4 color;
+
+      uniform int n_blank;
+      uniform vec2[4] blank0;
+      uniform vec2[4] blank1;
       
       float mixRatio(float ratio) {
-        vec2 uv = gl_FragCoord.xy / vec2(${width}, ${height});
+        vec2 uv = gl_FragCoord.xy / resolution;
 
         float dist = distance(uv, vec2(0.5, 0.5));
-        float circle = smoothstep(ratio, ratio - .4, dist);
+        float circle = smoothstep(ratio, ratio - .8, dist);
     
-        return circle;
+        return min(1., circle + 0.5*ratio);
       }
 
       float ease(float x) {
@@ -152,18 +181,37 @@ class Blend {
       }
 
       void main() {
-        vec2 pos = gl_FragCoord.xy / vec2(${width}, ${height});
+        vec2 pos = gl_FragCoord.xy / resolution;
         float a = texture(tex0, pos).r;
         float b = texture(tex1, pos).r;
+
+        for(int i = 0; i < n_blank; i++) {
+          vec2 p0 = blank0[i];
+          vec2 p1 = blank1[i];
+          if(pos.x > p0.x && pos.x < p1.x && pos.y > p0.y && pos.y < p1.y) {
+            a = 0.6;
+            b = 0.6;
+          }
+        }
+
         float eased = ease(ratio);
         color = vec4(mix(a, b, ease(mixRatio(ease(ratio)))), 0, 0, 1); 
       }
     `
     );
+    this.gl = gl;
     this.framebuffer = gl.createFramebuffer();
+    this.createOutTex();
+    this.blankLen = 0;
+    this.blank0 = new Float32Array(8);
+    this.blank1 = new Float32Array(8);
+  }
+
+  createOutTex() {
+    const gl = this.gl;
     this.outTex = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, this.outTex);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, width, height, 0, gl.RED, gl.UNSIGNED_BYTE, null);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, this.width, this.height, 0, gl.RED, gl.UNSIGNED_BYTE, null);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
@@ -171,6 +219,8 @@ class Blend {
   }
 
   blend(tex0, tex1, ratio) {
+    const gl = this.gl;
+
     gl.useProgram(this.prog);
     gl.viewport(0, 0, this.width, this.height);
     gl.clear(gl.COLOR_BUFFER_BIT);
@@ -182,24 +232,40 @@ class Blend {
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, tex1);
     gl.uniform1i(gl.getUniformLocation(this.prog, "tex1"), 1);
-
     gl.uniform1f(gl.getUniformLocation(this.prog, "ratio"), ratio);
+    gl.uniform2f(gl.getUniformLocation(this.prog, "resolution"), this.width, this.height);
+
+    gl.uniform1i(gl.getUniformLocation(this.prog, "n_blank"), this.blankLen);
+    gl.uniform2fv(gl.getUniformLocation(this.prog, "blank0"), this.blank0);
+    gl.uniform2fv(gl.getUniformLocation(this.prog, "blank1"), this.blank1);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
   }
 
   blendTex(tex0, tex1, ratio) {
+    const gl = this.gl;
+
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.outTex, 0);
 
     this.blend(tex0, tex1, ratio);
   }
+
+  resize(x, y) {
+    const gl = this.gl;
+    gl.deleteTexture(this.outTex);
+    this.width = x;
+    this.height = y;
+    this.createOutTex();
+  }
 }
 
 class Blur {
   constructor(gl, width, height) {
+    this.gl = gl;
     this.width = width;
     this.height = height;
     this.prog = createProgram(
+      gl,
       IDENTITY_VS,
       `#version 300 es
       precision highp float;
@@ -207,6 +273,7 @@ class Blur {
 
       uniform sampler2D tex;
       uniform float ratio;
+      uniform vec2 resolution;
       out vec4 color_out;
 
       vec4 cubic(float v) {
@@ -251,8 +318,8 @@ class Blur {
      }
 
       void main() {     
-        vec3 col = vec3(1, 1, 1) * textureBicubic(tex, gl_FragCoord.xy / vec2(${width}, ${height})).r;
-        //color_out = vec4(col, 1); return;
+        vec3 col = vec3(1, 1, 1) * textureBicubic(tex, gl_FragCoord.xy / resolution).r;
+        //color_out = vec4(1, 1, 0, 1); return;
         col *= (vec3(1) + vec3(2, 1, 4) * 0.05);
         col = smoothstep(0.4, 1.0, col);
         col = smoothstep(0.05, 0.1, col);
@@ -263,6 +330,8 @@ class Blur {
   }
 
   blur(outTex) {
+    const gl = this.gl;
+
     gl.useProgram(this.prog);
     gl.viewport(0, 0, this.width, this.height);
     gl.clear(gl.COLOR_BUFFER_BIT);
@@ -270,71 +339,116 @@ class Blur {
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, outTex);
     gl.uniform1i(gl.getUniformLocation(this.prog, "tex"), 0);
+    gl.uniform2f(gl.getUniformLocation(this.prog, "resolution"), this.width, this.height);
 
     gl.drawArrays(gl.TRIANGLES, 0, 6);
   }
-}
 
-class FPS {
-  constructor() {
-    this.fpsElem = document.getElementById("fps"); 
-    this.lastFrame = performance.now();
-  }
-
-  done() {
-    const now = performance.now();
-
-    this.fpsElem.innerHTML = (1000 / (now - this.lastFrame)).toFixed(0);
-
-    this.lastFrame = now;
+  resize(w, h) {
+    this.width = w;
+    this.height = h;
   }
 }
 
-function slider(id, fmt, on=()=>{}) {
-  const elem = document.getElementById(id);
-  const valueElem = document.querySelector(`label[for="${id}"] + span`);
-  const updateValue = () => valueElem.innerHTML = fmt(elem.value);
-  elem.addEventListener("input", () => {
-    updateValue();
-    on(elem.value);
-  });
-  updateValue();
-  return elem;
+class Instance {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.gl = canvas.getContext("webgl2");
+
+    this.setScale(48);
+    this.setSpeed(0.1);
+  }
+
+  start() {
+    this.sim = new Sim(this.gl, this.gridX, this.gridY);
+    this.blend = new Blend(this.gl, this.gridX * 2, this.gridY * 2);
+    this.blur = new Blur(this.gl, this.canvas.width, this.canvas.height);
+
+    this.updateBlank();
+    this.sim.step();
+
+    let lastFrame = document.timeline.currentTime;
+    let blendRatio = 0;
+    const loop = (now) => {
+      const elapsed = now - lastFrame;
+      lastFrame = now;
+      blendRatio += (elapsed / 1000) * this.speed;
+      if (blendRatio >= 1) {
+        this.sim.step();
+        blendRatio = 0;
+      }
+  
+      this.blend.blendTex(this.sim.tex1, this.sim.tex0, blendRatio);
+  
+      this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+      this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+      this.blur.blur(this.blend.outTex);
+    
+      requestAnimationFrame(loop);
+    }
+
+    requestAnimationFrame(loop);
+  }
+
+  setSpeed(s) {
+    this.speed = s;
+  }
+
+  setResolution(w, h) {
+    this.canvas.width = w;
+    this.canvas.height = h;
+
+    if(this.isRunning) {
+      this.blur.resize(w, h);
+    }
+  }
+
+  setScale(scale) {
+    this.gridX = Math.floor(scale);
+    this.gridY = Math.floor(this.gridX * this.canvas.height / this.canvas.width);
+
+    if(this.isRunning) {
+      this.sim.resize(this.gridX, this.gridY);
+      this.blend.resize(this.gridX * 2, this.gridY * 2);
+      this.sim.step();
+    }
+  }
+
+  setBlank(areas) {
+    this.blank = areas;
+
+    if(this.isRunning) {
+      this.updateBlank();
+    }
+  }
+
+  updateBlank() {
+    let idx = 0;
+    for(const [[ax, ay], [bx, by]] of this.blank) {
+      this.blend.blank0[idx] = ax;
+      this.blend.blank1[idx++] = bx;
+
+      this.blend.blank0[idx] = ay;
+      this.blend.blank1[idx++] = by;
+    }
+    this.blend.blankLen = this.blank.length;
+  }
+
+  get isRunning() {
+    return this.sim != null;
+  }
 }
 
-
-const speed = slider("speed", v => (100 * v).toFixed(1));
-const fps = new FPS();
-
+const canvas = document.getElementById("canvas");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-console.log(canvas.width, canvas.height);
+const i = new Instance(canvas);
+i.setScale(16);
+i.setBlank([[[0, 0], [0.5, 0.5]]]);
+i.start()
 
-let sim = new Sim(gl, 32, Math.floor(30 * canvas.height / canvas.width));
-let blend = new Blend(gl, sim.width * 2, sim.height * 2);
-let blur = new Blur(gl, canvas.width, canvas.height);
-
-let ratio = 0;
-
-function renderLoop() {
-  blend.blendTex(sim.tex1, sim.tex0, ratio);
-  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-  gl.viewport(0, 0, canvas.width, canvas.height);
-  blur.blur(blend.outTex);
-
-  ratio = ratio += parseFloat(speed.value);
-
-  if (ratio >= 1) {
-    sim.step();
-    ratio = 0;
-  }
-
-  gl.finish();
-  fps.done();
-
-  requestAnimationFrame(renderLoop);
-}
-
-sim.step();
-renderLoop();
+setTimeout(() => {
+  i.setBlank([]);
+  //i.setScale(12);
+}, 500);
