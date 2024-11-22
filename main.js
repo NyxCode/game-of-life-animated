@@ -444,11 +444,6 @@ canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
 const i = new Instance(canvas);
-i.setScale(16);
-i.setBlank([[[0, 0], [0.5, 0.5]]]);
+i.setScale(48);
+i.setBlank([[[0.2, 0], [0.8, 1]]]);
 i.start()
-
-setTimeout(() => {
-  i.setBlank([]);
-  //i.setScale(12);
-}, 500);
