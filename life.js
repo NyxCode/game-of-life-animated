@@ -399,8 +399,14 @@ export class Life {
     }
 
     setScale(scale) {
-        this.gridX = Math.floor(scale);
-        this.gridY = Math.floor(this.gridX * this.canvas.height / this.canvas.width);
+        if (this.canvas.width > this.canvas.height) {
+            this.gridX = Math.floor(scale);
+            this.gridY = Math.floor(this.gridX * this.canvas.height / this.canvas.width);
+        } else {
+            this.gridY = Math.floor(scale);
+            this.gridX = Math.floor(this.gridY * this.canvas.width / this.canvas.height);
+        }
+
 
         if (this.isRunning) {
             this.sim.resize(this.gridX, this.gridY);
