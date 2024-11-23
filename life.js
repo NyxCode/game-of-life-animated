@@ -40,15 +40,11 @@ const BLEND_FS = `#version 300 es
     uniform vec2 resolution;
     out vec4 color;
 
-    uniform int n_blank;
-    uniform vec2[4] blank0;
-    uniform vec2[4] blank1;
-
     float mixRatio(float ratio) {
         vec2 uv = gl_FragCoord.xy / resolution;
 
         float dist = distance(uv, vec2(0.5, 0.5));
-        float circle = smoothstep(ratio, ratio - .8, dist);
+        float circle = smoothstep(ratio, ratio - .2, dist);
 
         return min(1., circle + 0.5 * ratio);
     }
@@ -62,14 +58,7 @@ const BLEND_FS = `#version 300 es
         float a = texture(tex0, pos).r;
         float b = texture(tex1, pos).r;
 
-        for(int i = 0; i < n_blank; i++) {
-            vec2 p0 = blank0[i];
-            vec2 p1 = blank1[i];
-            if(pos.x > p0.x && pos.x < p1.x && pos.y > p0.y && pos.y < p1.y) {
-                a = 0.6;
-                b = 0.6;
-            }
-        }
+
 
         float eased = ease(ratio);
         color = vec4(mix(a, b, ease(mixRatio(ease(ratio)))), 0, 0, 1); 
@@ -84,6 +73,11 @@ const BLUR_FS = `#version 300 es
     uniform float ratio;
     uniform vec2 resolution;
     uniform float scroll_y;
+
+    uniform int n_blank;
+    uniform vec2[4] blank0;
+    uniform vec2[4] blank1;
+
     out vec4 color_out;
 
     vec4 cubic(float v) {
@@ -125,15 +119,33 @@ const BLUR_FS = `#version 300 es
         return mix(mix(sample3, sample2, sx), mix(sample1, sample0, sx), sy);
     }
 
+    float sdBox(vec2 p, vec2 b) {
+        vec2 d = abs(p)-b;
+        return length(max(d,0.0)) + min(max(d.x,d.y),0.0);
+    }
+
     void main() {
         vec2 uv = gl_FragCoord.xy / resolution;
+        vec2 wrapped_uv = vec2(uv.x, abs(2. * mod(.5 * (uv.y + scroll_y * 0.5) - .5, 1.) - 1.));
         uv.y += scroll_y;
-        
-        uv.y = abs(2. * mod(.5 * uv.y - .5, 1.) - 1.);
 
-        vec3 col = vec3(textureBicubic(tex, uv).r);
-        col *= 1. + vec3(2, 1, 4) * 0.05;
-        col = smoothstep(0.4, 1.0, col);
+        vec3 col = vec3(textureBicubic(tex, wrapped_uv).r);
+
+        for(int i = 0; i < n_blank; i++) {
+            vec2 p0 = blank0[i];
+            vec2 p1 = blank1[i];
+
+            vec2 d = max(p0 - uv, uv - p1);
+            float dist = length(max(d, 0.0)) + min(max(d.x, d.y), 0.0);
+
+            float blur = 0.05; // Blur radius
+            float alpha = smoothstep(0.0, blur, -dist + blur/2.);
+
+            col = mix(col, vec3(1), alpha);
+        }
+
+        col *= 1. + vec3(2, 1, 4) * 0.01;
+        col = smoothstep(0.35, 1., col);
         col = smoothstep(0.05, 0.1, col);
         color_out = vec4(col, 1);
     }
@@ -201,10 +213,15 @@ class Sim {
             return tex;
         };
 
-        const len = Math.pow(2, Math.ceil(Math.log2(this.width * this.height)));
+        const len = Math.pow(2, Math.ceil(Math.log2(this.width * this.height))) * 2; // idk, getting weird "ArrayBufferView not big enough for request" errors.
+        console.log(this.width, this.height, len);
         const pixels = new Uint8Array(len);
-        for (let i = 0; i < this.width * this.height; i++) {
-            pixels[i] = Math.random() < 0.2 ? 255 : 0;
+        for (let x = 0; x < this.width; x++) {
+            // if (Math.abs(x - this.width / 2) < 4) continue;
+            for (let y = 0; y < this.height; y++) {
+                pixels[x + this.width * y] = Math.random() < 0.18 ? 255 : 0;
+            }
+
         }
         this.tex0 = makeTexture(pixels);
         this.tex1 = makeTexture(null);
@@ -257,9 +274,6 @@ class Blend {
         this.gl = gl;
         this.framebuffer = gl.createFramebuffer();
         this.createOutTex();
-        this.blankLen = 0;
-        this.blank0 = new Float32Array(8);
-        this.blank1 = new Float32Array(8);
     }
 
     createOutTex() {
@@ -290,9 +304,7 @@ class Blend {
         gl.uniform1f(gl.getUniformLocation(this.prog, "ratio"), ratio);
         gl.uniform2f(gl.getUniformLocation(this.prog, "resolution"), this.width, this.height);
 
-        gl.uniform1i(gl.getUniformLocation(this.prog, "n_blank"), this.blankLen);
-        gl.uniform2fv(gl.getUniformLocation(this.prog, "blank0"), this.blank0);
-        gl.uniform2fv(gl.getUniformLocation(this.prog, "blank1"), this.blank1);
+
         gl.drawArrays(gl.TRIANGLES, 0, 6);
     }
 
@@ -321,6 +333,9 @@ class Blur {
         this.height = height;
         this.prog = createProgram(gl, IDENTITY_VS, BLUR_FS);
         this.scrollY = 0;
+        this.blankLen = 0;
+        this.blank0 = new Float32Array(8);
+        this.blank1 = new Float32Array(8);
     }
 
     blur(outTex) {
@@ -335,6 +350,9 @@ class Blur {
         gl.uniform1i(gl.getUniformLocation(this.prog, "tex"), 0);
         gl.uniform2f(gl.getUniformLocation(this.prog, "resolution"), this.width, this.height);
         gl.uniform1f(gl.getUniformLocation(this.prog, "scroll_y"), this.scrollY);
+        gl.uniform1i(gl.getUniformLocation(this.prog, "n_blank"), this.blankLen);
+        gl.uniform2fv(gl.getUniformLocation(this.prog, "blank0"), this.blank0);
+        gl.uniform2fv(gl.getUniformLocation(this.prog, "blank1"), this.blank1);
 
         gl.drawArrays(gl.TRIANGLES, 0, 6);
     }
@@ -360,6 +378,8 @@ export class Life {
         this.blur = new Blur(this.gl, this.canvas.width, this.canvas.height);
 
         this.updateBlank();
+        this.sim.step();
+        this.sim.step();
         this.sim.step();
 
         let lastFrame = document.timeline.currentTime;
@@ -426,13 +446,13 @@ export class Life {
     updateBlank() {
         let idx = 0;
         for (const [[ax, ay], [bx, by]] of this.blank) {
-            this.blend.blank0[idx] = ax;
-            this.blend.blank1[idx++] = bx;
+            this.blur.blank0[idx] = ax;
+            this.blur.blank1[idx++] = bx;
 
-            this.blend.blank0[idx] = ay;
-            this.blend.blank1[idx++] = by;
+            this.blur.blank0[idx] = 1 - by;
+            this.blur.blank1[idx++] = 1 - ay;
         }
-        this.blend.blankLen = this.blank.length;
+        this.blur.blankLen = this.blank.length;
     }
 
     get isRunning() {
