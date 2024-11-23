@@ -147,7 +147,7 @@ const BLUR_FS = `#version 300 es
         col *= 1. + vec3(2, 1, 4) * 0.01;
         col = smoothstep(0.35, 1., col);
         col = smoothstep(0.05, 0.1, col);
-        color_out = vec4(col, 1);
+        color_out = vec4(col * 0.7, 1);
     }
 `;
 
@@ -219,7 +219,7 @@ class Sim {
         for (let x = 0; x < this.width; x++) {
             // if (Math.abs(x - this.width / 2) < 4) continue;
             for (let y = 0; y < this.height; y++) {
-                pixels[x + this.width * y] = Math.random() < 0.18 ? 255 : 0;
+                pixels[x + this.width * y] = Math.random() < 0.3 ? 255 : 0;
             }
 
         }
