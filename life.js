@@ -83,6 +83,7 @@ const BLUR_FS = `#version 300 es
     uniform sampler2D tex;
     uniform float ratio;
     uniform vec2 resolution;
+    uniform float scroll_y;
     out vec4 color_out;
 
     vec4 cubic(float v) {
@@ -124,10 +125,14 @@ const BLUR_FS = `#version 300 es
         return mix(mix(sample3, sample2, sx), mix(sample1, sample0, sx), sy);
     }
 
-    void main() {     
-        vec3 col = vec3(1, 1, 1) * textureBicubic(tex, gl_FragCoord.xy / resolution).r;
-        //color_out = vec4(1, 1, 0, 1); return;
-        col *= (vec3(1) + vec3(2, 1, 4) * 0.05);
+    void main() {
+        vec2 uv = gl_FragCoord.xy / resolution;
+        uv.y += scroll_y;
+        
+        uv.y = abs(2. * mod(.5 * uv.y - .5, 1.) - 1.);
+
+        vec3 col = vec3(textureBicubic(tex, uv).r);
+        col *= 1. + vec3(2, 1, 4) * 0.05;
         col = smoothstep(0.4, 1.0, col);
         col = smoothstep(0.05, 0.1, col);
         color_out = vec4(col, 1);
@@ -315,6 +320,7 @@ class Blur {
         this.width = width;
         this.height = height;
         this.prog = createProgram(gl, IDENTITY_VS, BLUR_FS);
+        this.scrollY = 0;
     }
 
     blur(outTex) {
@@ -328,6 +334,7 @@ class Blur {
         gl.bindTexture(gl.TEXTURE_2D, outTex);
         gl.uniform1i(gl.getUniformLocation(this.prog, "tex"), 0);
         gl.uniform2f(gl.getUniformLocation(this.prog, "resolution"), this.width, this.height);
+        gl.uniform1f(gl.getUniformLocation(this.prog, "scroll_y"), this.scrollY);
 
         gl.drawArrays(gl.TRIANGLES, 0, 6);
     }
