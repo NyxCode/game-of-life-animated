@@ -1,29 +1,152 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite App</title>
-  </head>
-  <body>
-    <canvas id="canvas"></canvas>
 
-    <style>
-      body {
-        margin: 0;
-        background-color: red;
-        height: 100%;
-        height: 100dvh;
-        overflow:hidden;
-        font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
-      }
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
 
-      canvas {
-        width: 100%;
-        height: 100%;
-      }
-    </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/glsl.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/atom-one-dark.min.css"
+    integrity="sha512-Jk4AqjWsdSzSWCSuQTfYRIF84Rq/eV0G2+tu07byYwHcbTGfdmLrHjUSwvzp5HvbiqK4ibmNwdcG49Y5RGYPTg=="
+    crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <style>
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+    }
+  </style>
+  <title>.</title>
+</head>
+
+<body>
+  <canvas id="canvas" class="bg-red-200 absolute top-0 left-0 w-full z-[-1]"></canvas>
+
+
+  <div class="w-full antialiased flex flex-col gap-12 py-32">
+    <div id="content" class="bg-white w-1/2 mx-auto p-6 flex flex-col">
+
+      <!-- author -->
+      <div class="flex flex-row gap-4 mb-6">
+        <div class="bg-blue-300 rounded-full inline-block h-16 w-16 my-auto"></div>
+        <div class="flex flex-col justify-between leading-tight">
+          <span class="text-2xl">Author Author</span>
+          <span>Occupation, Job Description</span>
+          <span>Nov. 11, 2011</span>
+        </div>
+      </div>
+
+      <h1 class="text-3xl mb-2 font-medium">Title of this article</h1>
+
+      <p class="mb-4">
+        Nulla facilisi. Aenean lobortis sem a rhoncus faucibus. Nullam faucibus ultricies ex, eu vestibulum libero
+        scelerisque sit amet. Etiam congue vel nisi in efficitur. Suspendisse rhoncus dictum diam, eu placerat justo
+        congue interdum.
+      </p>
+
+      <p class="mb-4">
+        Nulla gravida fringilla velit vel gravida. Etiam ultrices erat vitae tempor luctus. Quisque egestas sed odio at
+        tempus. Maecenas commodo in nunc quis blandit. Integer venenatis, turpis quis imperdiet dignissim, est purus
+        egestas metus, euismod molestie elit orci ac arcu. Praesent eget velit lacus. Donec congue in dolor nec
+        malesuada. Vestibulum ultrices eros et tellus placerat pharetra. Suspendisse et rhoncus nunc, quis dapibus odio.
+        Donec in felis quam. Sed mattis, dolor sit amet rutrum egestas, sapien mi aliquam mauris, laoreet imperdiet
+        libero leo sit amet urna. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos
+        himenaeos. Cras tincidunt tincidunt ornare. Aliquam lobortis eget leo blandit posuere. Orci varius natoque
+        penatibus et magnis dis parturient montes, nascetur ridiculus mus. Vivamus id massa non lacus rutrum ultrices.
+      </p>
+
+      <div class="flex flex-row gap-4">
+        <div class="flex flex-col grow">
+          <div class="aspect-[2/1] bg-blue-200 rounded-xl"> </div>
+          <span class="w-full text-center text-sm">Source and description of the image</span>
+        </div>
+        <div class="flex flex-col w-1/4">
+          <div class="grow bg-blue-300 rounded-xl"> </div>
+          <span class="w-full text-center text-sm">Description</span>
+        </div>
+      </div>
+
+      <h1 class="text-3xl mt-4 mb-2 font-medium">Subtitle</h1>
+
+      <p class="mb-4">
+        Nulla facilisi. Aenean lobortis sem a rhoncus faucibus. Nullam faucibus ultricies ex, eu vestibulum libero
+        scelerisque sit amet. Etiam congue vel nisi in efficitur. Suspendisse rhoncus dictum diam, eu placerat justo
+        congue interdum.
+      </p>
+
+      <p class="mb-4">
+        Nulla gravida fringilla velit vel gravida. Etiam ultrices erat vitae tempor luctus. Quisque egestas sed odio at
+        tempus. Maecenas commodo in nunc quis blandit. Integer venenatis, turpis quis imperdiet dignissim, est purus
+        egestas metus, euismod molestie elit orci ac arcu. Praesent eget velit lacus. Donec congue in dolor nec
+        malesuada. Vestibulum ultrices eros et tellus placerat pharetra. Suspendisse et rhoncus nunc, quis dapibus odio.
+        Donec in felis quam. Sed mattis, dolor sit amet rutrum egestas, sapien mi aliquam mauris, laoreet imperdiet
+        libero leo sit amet urna. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos
+        himenaeos. Cras tincidunt tincidunt ornare. Aliquam lobortis eget leo blandit posuere. Orci varius natoque
+        penatibus et magnis dis parturient montes, nascetur ridiculus mus. Vivamus id massa non lacus rutrum ultrices.
+      </p>
+
+      <p class="">
+        Nulla facilisi. Aenean lobortis sem a rhoncus faucibus. Nullam faucibus ultricies ex, eu vestibulum libero
+        scelerisque sit amet. Etiam congue vel nisi in efficitur. Suspendisse rhoncus dictum diam, eu placerat justo
+        congue interdum.
+      </p>
+
+      <pre class="language-glsl theme-atom-one-dark mb-6">
+        <code class="rounded-xl">int neighbours = 0;
+for(int i = -1; i &lt;= 1; i++) {
+    for(int j = -1; j &lt;= 1; j++) {
+        if(i == 0 &amp;&amp; j == 0) continue;
+        ivec2 neighbour_pos = (grid_pos + ivec2(i, j) + grid_size) % grid_size;
+        float value = texture(tex, vec2(neighbour_pos) / vec2(grid_size)).r;
+        if(value == 1.0) neighbours++;
+    }
+}</code></pre>
+
+      <p class="mb-4">
+        Nulla facilisi. Aenean lobortis sem a rhoncus faucibus. Nullam faucibus ultricies ex, eu vestibulum libero
+        scelerisque sit amet. Etiam congue vel nisi in efficitur. Suspendisse rhoncus dictum diam, eu placerat justo
+        congue interdum.
+      </p>
+
+      <pre class="language-glsl theme-atom-one-dark mb-6">
+        <code class="rounded-xl">vec3 col = vec3(1) * textureBicubic(tex, gl_FragCoord.xy / resolution).r;
+col *= 1. + vec3(2, 1, 4) * 0.05;
+col = smoothstep(0.4, 1.0, col);
+col = smoothstep(0.05, 0.1, col);
+color_out = vec4(col, 1);</code></pre>
+
+
+      <h1 class="text-3xl mt-4 mb-2 font-medium">Conclusion</h1>
+      <p class="mb-4">
+        Nulla gravida fringilla velit vel gravida. Etiam ultrices erat vitae tempor luctus. Quisque egestas sed odio at
+        tempus. Maecenas commodo in nunc quis blandit. Integer venenatis, turpis quis imperdiet dignissim, est purus
+        egestas metus, euismod molestie elit orci ac arcu. Praesent eget velit lacus. Donec congue in dolor nec
+        malesuada. Vestibulum ultrices eros et tellus placerat pharetra. Suspendisse et rhoncus nunc, quis dapibus odio.
+        Donec in felis quam. Sed mattis, dolor sit amet rutrum egestas, sapien mi aliquam mauris, laoreet imperdiet
+        libero leo sit amet urna. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos
+        himenaeos. Cras tincidunt tincidunt ornare. Aliquam lobortis eget leo blandit posuere. Orci varius natoque
+        penatibus et magnis dis parturient montes, nascetur ridiculus mus. Vivamus id massa non lacus rutrum ultrices.
+      </p>
+      <p class="mb-4">
+        Nulla facilisi. Aenean lobortis sem a rhoncus faucibus. Nullam faucibus ultricies ex, eu vestibulum libero
+        scelerisque sit amet. Etiam congue vel nisi in efficitur. Suspendisse rhoncus dictum diam, eu placerat justo
+        congue interdum.
+      </p>
+
+
+    </div>
+
+
+
+
+    <script>hljs.highlightAll();</script>
     <script type="module" src="/main.js"></script>
-  </body>
+</body>
+
 </html>
