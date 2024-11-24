@@ -427,13 +427,18 @@ export class Life {
             newY = Math.floor(scale);
             newX = Math.floor(newY * this.canvas.width / this.canvas.height);
         }
-        let changed = newX != this.gridX || newY != this.gridY;
+        let changed = Math.abs(newX - this.gridX) > 1 || Math.abs(newY - this.gridY) > 1;
+
         [this.gridX, this.gridY] = [newX, newY];
 
-        if (this.isRunning && changed) {
-            this.sim.resize(this.gridX, this.gridY);
+        if (this.isRunning) {
+            if (changed) {
+
+                this.sim.resize(this.gridX, this.gridY);
+                this.sim.step();
+            }
+
             this.blend.resize(this.gridX * 2, this.gridY * 2);
-            this.sim.step();
         }
     }
 
