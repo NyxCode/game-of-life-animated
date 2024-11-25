@@ -410,6 +410,7 @@ export class Life {
     }
 
     setResolution(w, h) {
+        if (Math.abs(w - this.canvas.width) <= 1 && Math.abs(h - this.canvas.height) <= 1) return;
         this.canvas.width = w;
         this.canvas.height = h;
 
