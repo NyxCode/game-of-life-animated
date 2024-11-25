@@ -26,7 +26,7 @@ window.addEventListener("load", () => {
         const rect = canvas.getBoundingClientRect();
         const height = (rect.bottom - rect.top) * window.devicePixelRatio;
         const width = window.innerWidth * window.devicePixelRatio;
-        if (Math.abs(width - lastWidth) > 5 * width / 100 || Math.abs(height - lastHeight) > 5 * height / 100) {
+        if (Math.abs(width - lastWidth) >= width / 10 || Math.abs(height - lastHeight) >= height / 10) {
             i.setResolution(width, height);
             lastHeight = height;
             lastWidth = width;
