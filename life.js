@@ -256,6 +256,7 @@ class Sim {
     }
 
     resize(x, y) {
+        console.warn("expensive resize of sim");
         const gl = this.gl;
         gl.deleteTexture(this.tex0);
         gl.deleteTexture(this.tex1);
@@ -318,6 +319,7 @@ class Blend {
     }
 
     resize(x, y) {
+        console.warn("espensive resize of blend");
         const gl = this.gl;
         gl.deleteTexture(this.outTex);
         this.width = x;

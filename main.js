@@ -20,14 +20,20 @@ window.addEventListener("load", () => {
         return [[x0 + offset, y0 + offset], [x1 - offset, y1 - offset]];
     }
 
+    let lastWidth = 0;
+    let lastHeight = 0;
     const updateResolution = () => {
         const rect = canvas.getBoundingClientRect();
-        const height = rect.bottom - rect.top;
-        i.setResolution(
-            window.innerWidth * window.devicePixelRatio,
-            height * window.devicePixelRatio,
-        );
-        i.setScale(48);
+        const height = (rect.bottom - rect.top) * window.devicePixelRatio;
+        const width = window.innerWidth * window.devicePixelRatio;
+        if (Math.abs(width - lastWidth) > 5 * width / 100 || Math.abs(height - lastHeight) > 5 * height / 100) {
+            i.setResolution(width, height);
+            lastHeight = height;
+            lastWidth = width;
+            i.setScale(48);
+        }
+
+
         i.setBlank([getBlank(content), getBlank(footer)]);
     };
 
