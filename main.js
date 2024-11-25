@@ -21,14 +21,13 @@ window.addEventListener("load", () => {
     }
 
     const updateResolution = () => {
+        const rect = canvas.getBoundingClientRect();
+        const height = rect.bottom - rect.top;
         i.setResolution(
             window.innerWidth * window.devicePixelRatio,
-            window.innerHeight * window.devicePixelRatio,
+            height * window.devicePixelRatio,
         );
         i.setScale(48);
-        console.log("Resolution:", canvas.width, "x", canvas.height);
-
-
         i.setBlank([getBlank(content), getBlank(footer)]);
     };
 
