@@ -319,7 +319,7 @@ class Blend {
     }
 
     resize(x, y) {
-        console.warn("espensive resize of blend");
+        console.warn("expensive resize of blend");
         const gl = this.gl;
         gl.deleteTexture(this.outTex);
         this.width = x;
